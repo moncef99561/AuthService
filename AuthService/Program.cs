@@ -1,4 +1,5 @@
 using AuthService.Data;
+using AuthService.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,14 +24,18 @@ builder.Services.AddDbContext<AuthDbContext>(opt =>
 
 // Add services to the container.
 
+// Injection de dépendance
+
+builder.Services.AddScoped<IAuthService, AuthenticationService>();
+builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
+
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -39,6 +44,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next.Invoke();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Erreur non gérée : " + ex.Message);
+        throw;
+    }
+});
+
+// Activer le CORS
 app.UseCors("AllowReactFrontend");
 app.UseAuthorization();
 

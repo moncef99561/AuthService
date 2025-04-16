@@ -1,98 +1,42 @@
-﻿using AuthService.Data;
-using AuthService.Models;
+﻿using AuthService.Services;
 using AuthService.ViewModels;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace AuthService.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly AuthDbContext _context;
-        private readonly IConfiguration _configuration;
+        private readonly IAuthService _authService;
 
-        public AuthController(AuthDbContext context, IConfiguration configuration)
+        public AuthController(IAuthService authService)
         {
-            _context = context;
-            _configuration = configuration;
+            _authService = authService;
         }
 
         [HttpPost("external-register")]
-        public async Task<IActionResult> ExternalRegister([FromBody] RegisterFromExternalVM vm)
+        public async Task<IActionResult> Register([FromBody] RegisterFromExternalVM vm)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // Vérifie si l'utilisateur existe déjà
-            var exists = _context.CompteUtilisateurs.Any(u => u.Username == vm.Username);
-            if (exists)
-                return Conflict(new { message = "Ce nom d'utilisateur est déjà enregistré." });
-
-            var compte = new CompteUtilisateur
-            {
-                Username = vm.Username,
-                PasswordHash = vm.Password,
-                TypeUtilisateur = vm.TypeUtilisateur,
-                UtilisateurId = vm.UtilisateurId
-            };
-
-            await _context.AddAsync(compte);
-            await _context.SaveChangesAsync();
+            var success = await _authService.RegisterAsync(vm);
+            if (!success)
+                return Conflict(new { message = "Nom d'utilisateur déjà utilisé." });
 
             return Ok(new { message = "Compte enregistré dans AuthService." });
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginVM vm)
+        public async Task<IActionResult> Login([FromBody] LoginVM vm)
         {
-            var user = _context.CompteUtilisateurs.FirstOrDefault(u => u.Username == vm.Username);
-            if (user == null)
-                return Unauthorized(new { message = "Identifiants invalides." });
+            var (token, error) = await _authService.LoginAsync(vm);
 
-            var hasher = new PasswordHasher<CompteUtilisateur>();
-            var result = hasher.VerifyHashedPassword(user, user.PasswordHash, vm.Password);
+            if (error != null)
+                return Unauthorized(new { message = error });
 
-            if (result == PasswordVerificationResult.Failed)
-                return Unauthorized(new { message = "Identifiants invalides." });
-
-            var token = GenerateJwtToken(user);
-            return Ok(new
-            {
-                token,
-                user.UtilisateurId,
-                user.TypeUtilisateur
-            });
-        }
-
-        private string GenerateJwtToken(CompteUtilisateur user)
-        {
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.UtilisateurId.ToString()),
-                new Claim(ClaimTypes.Role, user.TypeUtilisateur),
-                new Claim(ClaimTypes.Name, user.Username)
-            };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(3),
-                signingCredentials: creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            return Ok(new { token });
         }
     }
 }
-
