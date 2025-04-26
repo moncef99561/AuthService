@@ -2,11 +2,9 @@
 using AuthService.Models;
 using AuthService.ViewModels;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Crypto.Generators;
+
 
 namespace AuthService.Services
 {
@@ -14,11 +12,14 @@ namespace AuthService.Services
     {
         private readonly AuthDbContext _context;
         private readonly IJwtTokenGenerator _tokenGenerator;
+        private readonly PasswordHasher<CompteUtilisateur> _passwordHasher;
+
 
         public AuthenticationService(AuthDbContext context, IJwtTokenGenerator tokenGenerator)
         {
             _context = context;
             _tokenGenerator = tokenGenerator;
+            _passwordHasher = new PasswordHasher<CompteUtilisateur>();
         }
 
         public async Task<bool> RegisterAsync(RegisterFromExternalVM vm)
@@ -38,22 +39,23 @@ namespace AuthService.Services
             await _context.SaveChangesAsync();
             return true;
         }
-
-        public async Task<(string? Token, string? Error)> LoginAsync(LoginVM vm)
+        public async Task<(string Token, CompteUtilisateur User, string? Error)> LoginAsync(LoginVM vm)
         {
-            var user = _context.CompteUtilisateurs.FirstOrDefault(u => u.Username == vm.Username);
+            var user = await _context.CompteUtilisateurs
+                .FirstOrDefaultAsync(u => u.Username == vm.Username);
+
             if (user == null)
-                return (null, "Nom d'utilisateur ou mot de passe incorrect.");
+                return (null, null, "Utilisateur introuvable");
 
-            var hasher = new PasswordHasher<CompteUtilisateur>();
-            var result = hasher.VerifyHashedPassword(user, user.Password, vm.Password);
+            var verificationResult = _passwordHasher.VerifyHashedPassword(user, user.Password, vm.Password);
 
-            if (result == PasswordVerificationResult.Failed)
-                return (null, "Nom d'utilisateur ou mot de passe incorrect.");
+            if (verificationResult == PasswordVerificationResult.Failed)
+                return (null, null, "Mot de passe incorrect");
 
             var token = _tokenGenerator.GenerateToken(user);
-            return (token, null);
+            return (token, user, null);
         }
+
     }
 
 }

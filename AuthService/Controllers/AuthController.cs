@@ -31,12 +31,19 @@ namespace AuthService.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginVM vm)
         {
-            var (token, error) = await _authService.LoginAsync(vm);
+            var (token, user, error) = await _authService.LoginAsync(vm);
 
             if (error != null)
                 return Unauthorized(new { message = error });
 
-            return Ok(new { token });
+            return Ok(new
+            {
+                token,
+                utilisateurId = user.UtilisateurId,
+                typeUtilisateur = user.TypeUtilisateur,
+                username = user.Username
+            });
         }
+
     }
 }
