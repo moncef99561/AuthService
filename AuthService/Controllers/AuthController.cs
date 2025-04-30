@@ -25,7 +25,7 @@ namespace AuthService.Controllers
             if (!success)
                 return Conflict(new { message = "Nom d'utilisateur déjà utilisé." });
 
-            return Ok(new { message = "Compte enregistré dans AuthService." });
+            return Ok(new { message = "Compte enregistré avec succès." });
         }
 
         [HttpPost("login")]
@@ -40,10 +40,10 @@ namespace AuthService.Controllers
             {
                 token,
                 utilisateurId = user.UtilisateurId,
+                nom = user.Nom,
+                prenom = user.Prenom,
                 typeUtilisateur = user.TypeUtilisateur,
-                username = user.Username
             });
         }
-
     }
 }

@@ -8,6 +8,8 @@ namespace AuthService.Data
     {
         public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options) { }
         public DbSet<CompteUtilisateur> CompteUtilisateurs { get; set; }
+        //public DbSet<CompteUtilisateur> ComptesUtilisateurs { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
