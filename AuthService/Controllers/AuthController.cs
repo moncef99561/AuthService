@@ -40,8 +40,6 @@ namespace AuthService.Controllers
             {
                 token,
                 utilisateurId = user.UtilisateurId,
-                nom = user.Nom,
-                prenom = user.Prenom,
                 typeUtilisateur = user.TypeUtilisateur,
             });
         }
